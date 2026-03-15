@@ -13,11 +13,14 @@ from config import (
 )
 from models.gcn_model import GCN
 from utils.dataset_loader import load_dataset
+from label_map import get_display_names
 
 # ── Load class names ─────────────────────────────────────────
 _, num_classes, class_names = load_dataset(DATA_RAW_PATH, batch_size=1, shuffle=False)
+display_names = get_display_names(class_names)
 
 # ── Load dữ liệu đã trích xuất ──────────────────────────────
+print("[Load] Backbone: ViT-B/16")
 print("[Load] Đọc features và labels từ file đã lưu...")
 features   = torch.load(FEATURES_SAVE_PATH)
 labels     = torch.load(LABELS_SAVE_PATH)
@@ -49,10 +52,9 @@ print(f"  Accuracy  : {accuracy*100:.2f}%")
 print(f"{'='*50}")
 
 print("\n[Classification Report]")
-print(classification_report(y_true, y_pred, target_names=class_names))
+print(classification_report(y_true, y_pred, target_names=display_names, zero_division=0))
 
 print("[Confusion Matrix]")
 cm = confusion_matrix(y_true, y_pred)
-# In đẹp bằng numpy
 print(np.array2string(cm, separator=" "))
-print("\nLabel order:", class_names)
+print("\nLabel order:", display_names)

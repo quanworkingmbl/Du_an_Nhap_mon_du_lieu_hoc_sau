@@ -1,5 +1,5 @@
 # ============================================================
-# train.py — Pipeline: CNN feature extraction → Graph → GCN training
+# train.py — Pipeline: ViT feature extraction → Graph → GCN training
 # ============================================================
 
 import os
@@ -13,10 +13,11 @@ from config import (
     SIMILARITY_THRESHOLD,
     MODEL_SAVE_PATH, FEATURES_SAVE_PATH, LABELS_SAVE_PATH, EDGE_INDEX_SAVE,
 )
-from models.cnn_model import CNNFeatureExtractor
+from models.vit_model import ViTFeatureExtractor
 from models.gcn_model import GCN
 from utils.dataset_loader import load_dataset
 from utils.graph_builder import build_graph
+from label_map import get_display_names
 
 # ── Device ──────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,10 +28,10 @@ loader, num_classes, class_names = load_dataset(
     DATA_RAW_PATH, batch_size=BATCH_SIZE, augment=True
 )
 
-# ── 2. CNN Feature Extraction ────────────────────────────────
-print("\n[Step 1] Trích xuất đặc trưng bằng CNN (ResNet50)...")
-cnn = CNNFeatureExtractor(pretrained=True).to(device)
-cnn.eval()
+# ── 2. ViT Feature Extraction ───────────────────────────────
+print("\n[Step 1] Trích xuất đặc trưng bằng ViT-B/16...")
+vit = ViTFeatureExtractor(pretrained=True).to(device)
+vit.eval()
 
 all_features = []
 all_labels   = []
@@ -38,14 +39,14 @@ all_labels   = []
 with torch.no_grad():
     for batch_idx, (imgs, lbls) in enumerate(loader):
         imgs = imgs.to(device)
-        feats = cnn(imgs)          # [B, 2048]
+        feats = vit(imgs)
         all_features.append(feats.cpu())
         all_labels.append(lbls)
         print(f"  Batch {batch_idx+1}/{len(loader)} — {feats.shape}")
 
-features = torch.cat(all_features)   # [N, 2048]
+features = torch.cat(all_features)   # [N, 768]
 labels   = torch.cat(all_labels)     # [N]
-print(f"[CNN] Tổng số ảnh: {features.shape[0]} | Feature dim: {features.shape[1]}")
+print(f"[ViT] Tổng số ảnh: {features.shape[0]} | Feature dim: {features.shape[1]}")
 
 # ── 3. Lưu features để tái sử dụng ──────────────────────────
 os.makedirs(DATA_PROCESSED_PATH, exist_ok=True)
@@ -94,6 +95,8 @@ for epoch in range(1, NUM_EPOCHS + 1):
         best_loss = loss.item()
         torch.save(model.state_dict(), MODEL_SAVE_PATH)
 
+display_names = get_display_names(class_names)
 print(f"\n[Done] Model đã lưu → {MODEL_SAVE_PATH}")
+print(f"       Backbone : ViT-B/16")
 print(f"       Best loss: {best_loss:.4f}")
-print(f"       Số lớp   : {num_classes} → {class_names}")
+print(f"       Số lớp   : {num_classes} → {display_names}")

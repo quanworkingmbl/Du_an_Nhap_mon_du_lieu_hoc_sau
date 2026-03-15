@@ -47,7 +47,7 @@ function App() {
       <header className="app-header">
         <div className="header-content">
           <h1>🧬 AI Pill Classifier</h1>
-          <p className="subtitle">ResNet50 + GCN — Phân tích &amp; Nhận dạng viên thuốc</p>
+          <p className="subtitle">ViT + GCN — Phân tích &amp; Nhận dạng viên thuốc</p>
         </div>
       </header>
 
@@ -105,7 +105,7 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>Dự án Nhập môn Dữ liệu Học sâu — ResNet50 + GCN Pipeline</p>
+        <p>Dự án Nhập môn Dữ liệu Học sâu — ViT/ResNet + GCN Pipeline</p>
       </footer>
     </div>
   );
