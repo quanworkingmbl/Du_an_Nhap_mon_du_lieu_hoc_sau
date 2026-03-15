@@ -11,25 +11,34 @@ import torchvision.transforms as transforms
 def get_transforms(input_size: int = 224, augment: bool = False):
     """
     Trả về transform pipeline.
-    augment=True: thêm random flip + color jitter cho training.
+    augment=True: dùng augmentation mạnh hơn cho training ViT.
     """
-    base = [
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],   # ImageNet mean
+        std=[0.229, 0.224, 0.225],    # ImageNet std
+    )
+
+    if augment:
+        return transforms.Compose([
+            transforms.RandomResizedCrop(input_size, scale=(0.7, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(p=0.2),
+            transforms.RandomRotation(degrees=20),
+            transforms.ColorJitter(
+                brightness=0.3,
+                contrast=0.3,
+                saturation=0.3,
+                hue=0.1,
+            ),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+    return transforms.Compose([
         transforms.Resize((input_size, input_size)),
         transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],   # ImageNet mean
-            std=[0.229, 0.224, 0.225],    # ImageNet std
-        ),
-    ]
-    if augment:
-        aug = [
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        ]
-        # Chèn augmentation trước ToTensor
-        base = [transforms.Resize((input_size, input_size))] + aug + base[1:]
-
-    return transforms.Compose(base)
+        normalize,
+    ])
 
 
 def load_dataset(
