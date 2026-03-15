@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+md/
+# Environment
+# .env
+# .env.local
+# .env.*.local
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+image/
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test/Development scripts (not needed in production)
+test_*.py
+verify_*.py
+encode_*.py
+setup_*.py
+*_test.py
+
