@@ -1,5 +1,5 @@
 # ============================================================
-# api.py — Flask API cho UI phân tích AI (ResNet + GCN)
+# api.py — Flask API cho UI phân tích AI (ViT + GCN)
 # ============================================================
 
 import os
@@ -19,14 +19,14 @@ _labels = None
 _edge_index = None
 _class_names = None
 _num_classes = 0
-_cnn = None
+_feature_extractor = None
 _device = None
 
 
 def _try_load_model():
     """Thử load model và dữ liệu từ checkpoints."""
     global _model_loaded, _model, _features, _labels, _edge_index
-    global _class_names, _num_classes, _cnn, _device
+    global _class_names, _num_classes, _feature_extractor, _device
 
     if _model_loaded:
         return True
@@ -40,7 +40,7 @@ def _try_load_model():
             DATA_RAW_PATH,
         )
         from models.gcn_model import GCN
-        from models.cnn_model import CNNFeatureExtractor
+        from models.vit_model import ViTFeatureExtractor
 
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -66,12 +66,12 @@ def _try_load_model():
         _model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=_device))
         _model.eval()
 
-        # Load CNN cho inference
-        _cnn = CNNFeatureExtractor(pretrained=True).to(_device)
-        _cnn.eval()
+        # Load ViT cho inference
+        _feature_extractor = ViTFeatureExtractor(pretrained=True).to(_device)
+        _feature_extractor.eval()
 
         _model_loaded = True
-        print("[API] Model loaded thành công!")
+        print("[API] Model loaded thành công! (Backbone: ViT-B/16)")
         return True
 
     except Exception as e:
@@ -116,14 +116,15 @@ def model_info():
         CNN_FEATURE_DIM, GCN_HIDDEN_DIM, CNN_INPUT_SIZE,
         BATCH_SIZE, LEARNING_RATE, NUM_EPOCHS, SIMILARITY_THRESHOLD,
     )
+    from label_map import get_display_names
 
     model_loaded = _try_load_model()
 
     info = {
-        "model_name": "ResNet50 + GCN (Graph Convolutional Network)",
+        "model_name": "ViT-B/16 + GCN (Graph Convolutional Network)",
         "model_loaded": model_loaded,
         "cnn": {
-            "architecture": "ResNet50 (pretrained ImageNet)",
+            "architecture": "ViT-B/16 (pretrained ImageNet)",
             "feature_dim": CNN_FEATURE_DIM,
             "input_size": CNN_INPUT_SIZE,
         },
@@ -146,7 +147,7 @@ def model_info():
         info["dataset"] = {
             "num_samples": int(_features.shape[0]),
             "num_classes": _num_classes,
-            "class_names": _class_names,
+            "class_names": get_display_names(_class_names),
             "feature_shape": list(_features.shape),
             "num_edges": int(_edge_index.shape[1]),
         }
@@ -191,17 +192,19 @@ def evaluate():
             zero_division=0,
         )
 
+        from label_map import get_display_name
         per_class = []
         for name in _class_names:
             if name in report:
                 per_class.append({
-                    "name": name,
+                    "name": get_display_name(name),
                     "precision": round(report[name]["precision"], 4),
                     "recall": round(report[name]["recall"], 4),
                     "f1": round(report[name]["f1-score"], 4),
                     "support": int(report[name]["support"]),
                 })
 
+        from label_map import get_display_names as _get_display_names
         cm = confusion_matrix(y_true, y_pred).tolist()
 
         return jsonify({
@@ -209,7 +212,7 @@ def evaluate():
             "accuracy": round(accuracy, 4),
             "per_class": per_class,
             "confusion_matrix": cm,
-            "class_names": _class_names,
+            "class_names": _get_display_names(_class_names),
         })
 
     except Exception as e:
@@ -254,7 +257,7 @@ def inference():
         img_t = transform(img).unsqueeze(0).to(_device)
 
         with torch.no_grad():
-            new_feat = _cnn(img_t)
+            new_feat = _feature_extractor(img_t)
             combined_features = torch.cat([_features, new_feat], dim=0)
             out = _model(combined_features, _edge_index)
             last = out[-1].unsqueeze(0)
@@ -262,10 +265,11 @@ def inference():
             confidence = probs.max().item()
             pred_class = probs.argmax().item()
 
+        from label_map import get_display_name
         probabilities = []
         for i, name in enumerate(_class_names):
             probabilities.append({
-                "class": name,
+                "class": get_display_name(name),
                 "probability": round(probs[0][i].item(), 4),
             })
 
@@ -273,7 +277,7 @@ def inference():
 
         return jsonify({
             "source": "model",
-            "predicted_class": _class_names[pred_class],
+            "predicted_class": get_display_name(_class_names[pred_class]),
             "confidence": round(confidence, 4),
             "probabilities": probabilities,
         })
