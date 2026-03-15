@@ -17,7 +17,6 @@ Cách chạy:
 import os
 import shutil
 import argparse
-import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -26,39 +25,31 @@ def extract_class(filename: str) -> str:
     """
     Trích xuất tên class từ tên file.
 
-    Quy tắc (dựa trên dataset NLM Pills):
-        NIH-Pill-rximage_A_0002.jpg    → NIH_rximage_A
-        NIH-Pill-rximage_m_0001.jpg    → NIH_rximage_m
-        NIH-Pill-rximage_mosaic_0001.jpg → NIH_rximage_mosaic
-        Personal-251124_I0001.jpg      → Personal_I
-        Personal-251127_J0001.jpg      → Personal_J
-        Personal-251127_K0001.jpg      → Personal_K
-        Negatives_I0001.jpg            → Negatives
-        ...
+    Quy tắc (dựa trên dataset thực tế):
+        pills-2602_11_21080040638_...jpg  → pills_11
+        pills-2602_43_google_0001.jpg     → pills_43
+        pills-2602_ff_google_0001.jpg     → pills_ff
+        pills-2602_t2_000001.jpg          → pills_t2
+        pills-2602_t4r_000001.jpg         → pills_t4r
+        pills-2602_IMG_4205.jpg           → pills_IMG
+        pills-search_ya4_0001.jpg         → pills_ya4
+        Various_tablets(10).jpeg          → Various
+        Various_pill-man-s-hand.jpg       → Various
     """
-    name = Path(filename).stem  # bỏ .jpg
+    name = Path(filename).stem  # bỏ phần mở rộng
 
-    # NIH-Pill-rximage_<letter>_<num>
-    m = re.match(r'NIH-Pill-rximage_([A-Za-z]+)_\d+', name)
-    if m:
-        return f"NIH_{m.group(1)}"
+    # Various_* → class "Various"
+    if name.startswith('Various_'):
+        return 'Various'
 
-    # Personal-<date>_<letter><num>
-    m = re.match(r'Personal-\d+_([A-Z])\d+', name)
-    if m:
-        return f"Personal_{m.group(1)}"
+    # pills-*_<class>_<rest>  hoặc  pills-*_<class>
+    # Lấy phần thứ 2 sau dấu '_' đầu tiên làm class
+    parts = name.split('_')
+    if len(parts) >= 2:
+        return f"pills_{parts[1]}"
 
-    # Personal-<date>_IMG_<num>
-    m = re.match(r'Personal-\d+_IMG_\d+', name)
-    if m:
-        return "Personal_IMG"
-
-    # Negatives_*
-    if name.startswith('Negatives_'):
-        return 'Negatives'
-
-    # fallback: lấy phần trước dấu _
-    return name.split('_')[0]
+    # fallback
+    return parts[0]
 
 
 def organize_folder(src_dir: str, dst_dir: str, dry_run: bool = False):

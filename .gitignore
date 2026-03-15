@@ -41,7 +41,7 @@ image/
 # Logs
 *.log
 logs/
-
+dataset/
 # OS
 .DS_Store
 Thumbs.db
