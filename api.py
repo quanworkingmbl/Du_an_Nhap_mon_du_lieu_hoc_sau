@@ -37,7 +37,7 @@ def _try_load_model():
             CNN_FEATURE_DIM, GCN_HIDDEN_DIM,
             MODEL_SAVE_PATH, FEATURES_SAVE_PATH,
             LABELS_SAVE_PATH, EDGE_INDEX_SAVE,
-            DATA_RAW_PATH,
+            DATA_RAW_PATH, SIMILARITY_THRESHOLD,
         )
         from models.gcn_model import GCN
         from models.vit_model import ViTFeatureExtractor
@@ -247,8 +247,9 @@ def inference():
     try:
         import torch
         from PIL import Image
-        from config import CNN_INPUT_SIZE
+        from config import CNN_INPUT_SIZE, SIMILARITY_THRESHOLD
         from utils.dataset_loader import get_transforms
+        from utils.graph_builder import extend_graph_with_new_node
 
         file = request.files["image"]
         img = Image.open(file.stream).convert("RGB")
@@ -259,7 +260,10 @@ def inference():
         with torch.no_grad():
             new_feat = _feature_extractor(img_t)
             combined_features = torch.cat([_features, new_feat], dim=0)
-            out = _model(combined_features, _edge_index)
+            extended_edge_index = extend_graph_with_new_node(
+                _features, new_feat, _edge_index, threshold=SIMILARITY_THRESHOLD
+            )
+            out = _model(combined_features, extended_edge_index)
             last = out[-1].unsqueeze(0)
             probs = torch.softmax(last, dim=1)
             confidence = probs.max().item()
