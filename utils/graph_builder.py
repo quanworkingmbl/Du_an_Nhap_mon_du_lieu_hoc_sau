@@ -46,6 +46,7 @@ def build_graph(features: torch.Tensor, threshold: float = 0.8, batch_size: int 
                 for j in range(n):
                     if i_global != j and sim_block[i_local][j] > threshold:
                         edges.append([i_global, j])
+                        edges.append([j, i_global])
             if start % (batch_size * 5) == 0:
                 print(f"  Processed {end}/{n} nodes...")
 
@@ -58,3 +59,52 @@ def build_graph(features: torch.Tensor, threshold: float = 0.8, batch_size: int 
     print(f"[Graph] Số node: {n} | Số cạnh: {edge_index.shape[1]} "
           f"| Threshold: {threshold}")
     return edge_index
+
+
+def extend_graph_with_new_node(
+    train_features: torch.Tensor,
+    new_feat: torch.Tensor,
+    existing_edge_index: torch.Tensor,
+    threshold: float = 0.8,
+    top_k: int = 5,
+) -> torch.Tensor:
+    """
+    Mở rộng đồ thị hiện có bằng cách thêm node mới (ảnh cần nhận dạng)
+    và kết nối nó với các node huấn luyện có cosine similarity > threshold.
+
+    Nếu không tìm được cạnh nào, kết nối với top_k node gần nhất.
+
+    Args:
+        train_features       : Tensor [N, D] — features từ tập huấn luyện
+        new_feat             : Tensor [1, D] — feature của ảnh mới
+        existing_edge_index  : Tensor [2, E] — đồ thị gốc
+        threshold            : Ngưỡng cosine similarity để tạo cạnh
+        top_k                : Số cạnh tối thiểu nếu không đủ ngưỡng
+
+    Returns:
+        extended_edge_index  : Tensor [2, E + E_new] — đồ thị mở rộng
+    """
+    n = train_features.shape[0]
+    new_idx = n  # Node mới nằm ở cuối
+
+    train_np = train_features.detach().cpu().numpy()
+    new_np = new_feat.detach().cpu().numpy()
+
+    sim = cosine_similarity(new_np, train_np)[0]  # [N]
+
+    new_edges = []
+    for j in range(n):
+        if sim[j] > threshold:
+            new_edges.append([new_idx, j])
+            new_edges.append([j, new_idx])
+
+    # Dự phòng: kết nối với top_k node gần nhất khi không đủ ngưỡng
+    if len(new_edges) == 0:
+        top_indices = np.argpartition(sim, -min(top_k, n))[-min(top_k, n):]
+        for j in top_indices:
+            new_edges.append([new_idx, j])
+            new_edges.append([j, new_idx])
+
+    new_edges_tensor = torch.tensor(new_edges, dtype=torch.long).t().contiguous()
+    new_edges_tensor = new_edges_tensor.to(existing_edge_index.device)
+    return torch.cat([existing_edge_index, new_edges_tensor], dim=1)

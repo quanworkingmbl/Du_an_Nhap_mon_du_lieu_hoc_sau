@@ -9,11 +9,12 @@ from PIL import Image
 from config import (
     CNN_FEATURE_DIM, GCN_HIDDEN_DIM,
     MODEL_SAVE_PATH, FEATURES_SAVE_PATH, EDGE_INDEX_SAVE,
-    DATA_RAW_PATH, CNN_INPUT_SIZE,
+    DATA_RAW_PATH, CNN_INPUT_SIZE, SIMILARITY_THRESHOLD,
 )
 from models.vit_model import ViTFeatureExtractor
 from models.gcn_model import GCN
 from utils.dataset_loader import get_transforms, load_dataset
+from utils.graph_builder import extend_graph_with_new_node
 from label_map import get_display_name
 
 # ── Đọc đường dẫn ảnh từ command line ───────────────────────
@@ -49,7 +50,10 @@ img_t     = transform(img).unsqueeze(0).to(device)
 with torch.no_grad():
     new_feat = vit(img_t)
     combined_features = torch.cat([train_features, new_feat], dim=0)
-    out  = model(combined_features, edge_index)
+    extended_edge_index = extend_graph_with_new_node(
+        train_features, new_feat, edge_index, threshold=SIMILARITY_THRESHOLD
+    )
+    out  = model(combined_features, extended_edge_index)
     last = out[-1].unsqueeze(0)
 
     probs      = torch.softmax(last, dim=1)
