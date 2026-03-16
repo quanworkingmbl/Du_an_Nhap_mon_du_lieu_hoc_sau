@@ -1,17 +1,21 @@
 """
 organize_dataset.py
 ===================
-Script tổ chức ảnh flat → ImageFolder format.
+Script tổ chức ảnh flat → ImageFolder format, sau đó tự động tăng cường
+(augment) dữ liệu train để đạt tổng số ảnh mục tiêu (mặc định 10 000 ảnh).
 
 Ảnh hiện tại nằm flat trong:
   dataset/image/train/   (tên file: NIH-Pill-rximage_A_0002.jpg, Personal-251124_I0001.jpg, ...)
   dataset/image/val/
 
-Script này sẽ phân tích tên file → tạo subfolder class → copy ảnh vào.
+Script này sẽ phân tích tên file → tạo subfolder class → copy ảnh vào,
+rồi gọi augment_dataset để tạo đủ --target ảnh cho việc huấn luyện.
 
 Cách chạy:
-    python organize_dataset.py
-    python organize_dataset.py --dry_run   ← chỉ xem, không di chuyển
+    python organize_dataset.py                         ← tổ chức + augment đến 10 000 ảnh
+    python organize_dataset.py --target 20000          ← đặt mục tiêu khác
+    python organize_dataset.py --no_augment            ← chỉ tổ chức, không augment
+    python organize_dataset.py --dry_run               ← chỉ xem, không di chuyển / tạo file
 """
 
 import os
@@ -19,6 +23,8 @@ import shutil
 import argparse
 from collections import defaultdict
 from pathlib import Path
+
+from augment_dataset import augment_dataset
 
 
 def extract_class(filename: str) -> str:
@@ -95,8 +101,12 @@ def main():
                     help="Thư mục train đích (ImageFolder format)")
     ap.add_argument("--val_dst",   default="dataset/organized/val",
                     help="Thư mục val đích (ImageFolder format)")
+    ap.add_argument("--target",    type=int, default=10000,
+                    help="Tổng số ảnh train mục tiêu sau augmentation (default: 10000)")
+    ap.add_argument("--no_augment", action="store_true",
+                    help="Bỏ qua bước augmentation, chỉ tổ chức file")
     ap.add_argument("--dry_run",   action="store_true",
-                    help="Chỉ xem kết quả phân loại, không copy file")
+                    help="Chỉ xem kết quả phân loại, không copy / tạo file")
     args = ap.parse_args()
 
     print("=" * 60)
@@ -115,6 +125,14 @@ def main():
     else:
         print("\n[DRY RUN] Không có file nào bị di chuyển.")
         print("Chạy không có --dry_run để thực sự copy file.")
+
+    # ── Augmentation để đạt mục tiêu ───────────────────────────────────────
+    if not args.no_augment:
+        print()
+        print("=" * 60)
+        print(f"Augment Train Dataset → {args.target} ảnh")
+        print("=" * 60)
+        augment_dataset(args.train_dst, args.target, args.dry_run)
 
 
 if __name__ == "__main__":
